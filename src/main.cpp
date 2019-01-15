@@ -21,6 +21,7 @@ void connectToWiFi() {
     would try to act as both a client and an access-point and could cause
     network-issues with your other WiFi-devices on your WiFi-network. */
     WiFi.mode(WIFI_STA);
+    WiFi.disconnect();
     //start connecting to WiFi
     WiFi.begin(SSID, PASSWORD);
     //while client is not connected to WiFi keep loading
@@ -57,7 +58,7 @@ void loop() {
     // Eliminate abnormal values
     if ((t >= -15 && t <= 80) && (h >= 0 && h <= 100)) {
         // === Push temperature value to Firebase ===
-        String tempValueID = Firebase.pushInt("dht11/temperature", t);
+        String tempValueID = Firebase.pushFloat("dht11/temperature", t);
         if (Firebase.failed()) {
             Serial.print("[ERROR] pushing /dht11/temperature failed:");
             Serial.println(Firebase.error());
@@ -67,13 +68,13 @@ void loop() {
         Serial.println(tempValueID);
 
         // === Push humidity value to Firebase ===
-        String humValueID = Firebase.pushInt("dht11/humidity", h);
+        String humValueID = Firebase.pushFloat("dht11/humidity", h);
         if (Firebase.failed()) {
             Serial.print("[ERROR] pushing /dht11/humidity failed:");
             Serial.println(Firebase.error());
             return;
         }
-        Serial.print("[INFO] pushed: /dht11/humidity \tkey: ");
+        Serial.print("[INFO] pushed: /dht11/humidity    \tkey: ");
         Serial.println(humValueID);
         Serial.println();
     } else {
