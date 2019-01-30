@@ -6,6 +6,9 @@
 #include <FirebaseArduino.h>
 #include "Creds.h"
 
+// comment this line if you want to use DHT11
+#define TEST
+
 #define DHTTYPE DHT11
 #define DHTPIN D2
 
@@ -45,20 +48,11 @@ void setup() {
 }
 
 void loop() {
-    // === Read and Log temperature and humidity to Serial Monitor ===
-    float h = dht.readHumidity();
-    float t = dht.readTemperature();
-    Serial.print("Current humidity = ");
-    Serial.print(h);
-    Serial.print("%  ");
-    Serial.print("temperature = ");
-    Serial.print(t);
-    Serial.println("°C  ");
-
-    // Eliminate abnormal values
-    if ((t >= -15 && t <= 80) && (h >= 0 && h <= 100)) {
+    #ifdef TEST
         // === Push temperature value to Firebase ===
-        String tempValueID = Firebase.pushFloat("dht11/temperature", t);
+        String tempValueID = Firebase.pushInt("dht11/temperature", random(0, 80));
+        Serial.print("[INFO] temperature: ");
+        Serial.println(random(0, 80));
         if (Firebase.failed()) {
             Serial.print("[ERROR] pushing /dht11/temperature failed:");
             Serial.println(Firebase.error());
@@ -66,9 +60,11 @@ void loop() {
         }
         Serial.print("[INFO] pushed: /dht11/temperature \tkey: ");
         Serial.println(tempValueID);
-
+        
         // === Push humidity value to Firebase ===
-        String humValueID = Firebase.pushFloat("dht11/humidity", h);
+        String humValueID = Firebase.pushInt("dht11/humidity", random(0, 80));
+        Serial.print("[INFO] humidity: ");
+        Serial.println(random(0, 80));
         if (Firebase.failed()) {
             Serial.print("[ERROR] pushing /dht11/humidity failed:");
             Serial.println(Firebase.error());
@@ -77,9 +73,43 @@ void loop() {
         Serial.print("[INFO] pushed: /dht11/humidity    \tkey: ");
         Serial.println(humValueID);
         Serial.println();
-    } else {
-        Serial.println("Wrong values!");
-    }
+    #else
+        // === Read and Log temperature and humidity to Serial Monitor ===
+        float h = dht.readHumidity();
+        float t = dht.readTemperature();
+        Serial.print("[INFO] Current Humidity = ");
+        Serial.print(h);
+        Serial.println(" %");
+        Serial.print("[INFO] Current Temperature = ");
+        Serial.print(t);
+        Serial.println(" °C");
+        
+        // Eliminate abnormal values
+        if ((t >= -15 && t <= 80) && (h >= 0 && h <= 100)) {
+            // === Push temperature value to Firebase ===
+            String tempValueID = Firebase.pushFloat("dht11/temperature", t);
+            if (Firebase.failed()) {
+                Serial.print("[ERROR] pushing /dht11/temperature failed:");
+                Serial.println(Firebase.error());
+                return;
+            }
+            Serial.print("[INFO] pushed: /dht11/temperature \tkey: ");
+            Serial.println(tempValueID);
+
+            // === Push humidity value to Firebase ===
+            String humValueID = Firebase.pushFloat("dht11/humidity", h);
+            if (Firebase.failed()) {
+                Serial.print("[ERROR] pushing /dht11/humidity failed:");
+                Serial.println(Firebase.error());
+                return;
+            }
+            Serial.print("[INFO] pushed: /dht11/humidity    \tkey: ");
+            Serial.println(humValueID);
+            Serial.println();
+        } else {
+            Serial.println("[ERROR] Wrong values!");
+        }
+    #endif
 
     delay(1000);
 }
