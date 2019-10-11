@@ -4,7 +4,8 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
 #include <FirebaseArduino.h>
-#include "Creds.h"
+
+#include "creds.h"
 
 // #define DONT_HAVE_SENSORS
 
