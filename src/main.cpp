@@ -6,110 +6,137 @@
 #include <FirebaseArduino.h>
 #include "Creds.h"
 
-// comment this line if you want to use DHT11
-#define TEST
+// #define DONT_HAVE_SENSORS
 
-#define DHTTYPE DHT11
-#define DHTPIN D2
+#define MQ5PIN 		D6
+#define DHTPIN 		D2
+#define DHTTYPE		DHT11
+
+#define BAUDRATE	115200
+
+struct readings {
+  bool gas;						// Gas status: true if gas detected and false if no gas detected
+  float hum;  				// Humidity in Percent	  ( %)
+  float temp;  				// Temperature in Celsius (°C)
+} readings;
 
 DHT dht(DHTPIN, DHTTYPE);
 
-void connectToWiFi() {
-    delay(10);
-    Serial.println();
-    Serial.println();
-    Serial.print("Connecting to ");
-    Serial.print(SSID);
-    /* Explicitly set the ESP8266 to be a WiFi-client, otherwise, it by default,
-    would try to act as both a client and an access-point and could cause
-    network-issues with your other WiFi-devices on your WiFi-network. */
-    WiFi.mode(WIFI_STA);
-    WiFi.disconnect();
-    //start connecting to WiFi
-    WiFi.begin(SSID, PASSWORD);
-    //while client is not connected to WiFi keep loading
-    while (WiFi.status() != WL_CONNECTED) {
-        delay(500);
-        Serial.print(".");
-    }
-    Serial.println("");
-    Serial.print("WiFi connected to ");
-    Serial.println(SSID);
-    Serial.print("IP address: ");
-    Serial.println(WiFi.localIP());
-    Serial.println("");
-}
+// Generally, you should use "unsigned long" for variables that hold time
+// The value will quickly become too large for an int to store
+
+// will store last time data was sent to Firebase
+unsigned long previousMillis = 0;
+const long interval = 2000;
+
+void connectToWiFi(char const *ssid, char const *password);
+void readSensors(struct readings *r);
+void displaySensors(struct readings r);
+void sendDataToFirebase(struct readings r);
 
 void setup() {
-    Serial.begin(115200);
-    connectToWiFi();
-    Firebase.begin(FIREBASE_HOST, FIREBASE_AUTH);
-    dht.begin();
+  pinMode(MQ5PIN, INPUT);
+  Serial.begin(BAUDRATE);
+  connectToWiFi(SSID, PASSWORD);
+  Firebase.begin(FIREBASE_HOST, FIREBASE_AUTH);
+  dht.begin();
 }
 
 void loop() {
-    #ifdef TEST
-        // === Push temperature value to Firebase ===
-        String tempValueID = Firebase.pushInt("dht11/temperature", random(0, 80));
-        Serial.print("[INFO] temperature: ");
-        Serial.println(random(0, 80));
-        if (Firebase.failed()) {
-            Serial.print("[ERROR] pushing /dht11/temperature failed:");
-            Serial.println(Firebase.error());
-            return;
-        }
-        Serial.print("[INFO] pushed: /dht11/temperature \tkey: ");
-        Serial.println(tempValueID);
-        
-        // === Push humidity value to Firebase ===
-        String humValueID = Firebase.pushInt("dht11/humidity", random(0, 80));
-        Serial.print("[INFO] humidity: ");
-        Serial.println(random(0, 80));
-        if (Firebase.failed()) {
-            Serial.print("[ERROR] pushing /dht11/humidity failed:");
-            Serial.println(Firebase.error());
-            return;
-        }
-        Serial.print("[INFO] pushed: /dht11/humidity    \tkey: ");
-        Serial.println(humValueID);
-        Serial.println();
-    #else
-        // === Read and Log temperature and humidity to Serial Monitor ===
-        float h = dht.readHumidity();
-        float t = dht.readTemperature();
-        Serial.print("[INFO] Current Humidity = ");
-        Serial.print(h);
-        Serial.println(" %");
-        Serial.print("[INFO] Current Temperature = ");
-        Serial.print(t);
-        Serial.println(" °C");
-        
-        // Eliminate abnormal values
-        if ((t >= -15 && t <= 80) && (h >= 0 && h <= 100)) {
-            // === Push temperature value to Firebase ===
-            String tempValueID = Firebase.pushFloat("dht11/temperature", t);
-            if (Firebase.failed()) {
-                Serial.print("[ERROR] pushing /dht11/temperature failed:");
-                Serial.println(Firebase.error());
-                return;
-            }
-            Serial.print("[INFO] pushed: /dht11/temperature \tkey: ");
-            Serial.println(tempValueID);
+  // check to see if it's time to send data to Firebase; that is, if the difference
+  // between the current time and last time we sent data is bigger than
+  // the interval at which we want to send data.
+  unsigned long currentMillis = millis();
 
-            // === Push humidity value to Firebase ===
-            String humValueID = Firebase.pushFloat("dht11/humidity", h);
-            if (Firebase.failed()) {
-                Serial.print("[ERROR] pushing /dht11/humidity failed:");
-                Serial.println(Firebase.error());
-                return;
-            }
-            Serial.print("[INFO] pushed: /dht11/humidity    \tkey: ");
-            Serial.println(humValueID);
-            Serial.println();
-        } else {
-            Serial.println("[ERROR] Wrong values!");
-        }
-    #endif
+  if (currentMillis - previousMillis >= interval) {
+    // save the last time we sent data to Fireabase
+    previousMillis = currentMillis;
+    readSensors(&readings);
+    displaySensors(readings);
+    sendDataToFirebase(readings);
+  }
+}
 
-    delay(1000);
+void connectToWiFi(char const *ssid, char const *password) {
+  delay(10);
+  Serial.println();
+  Serial.println();
+  Serial.print("Connecting to ");
+  Serial.print(ssid);
+  /* Explicitly set the ESP8266 to be a WiFi-client, otherwise, it by default,
+  would try to act as both a client and an access-point and could cause
+  network-issues with your other WiFi-devices on your WiFi-network. */
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect();
+  //start connecting to WiFi
+  WiFi.begin(ssid, password);
+  //while client is not connected to WiFi keep loading
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("");
+  Serial.print("WiFi connected to ");
+  Serial.println(ssid);
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+  Serial.println("");
+}
+
+void readSensors(struct readings *r) {
+  #ifdef DONT_HAVE_SENSORS
+    readings.gas = !readings.gas;
+    readings.temp = random(0, 80);
+    readings.hum = random(0, 80);
+  #else
+    // Read Gas status
+    r->gas = digitalRead(MQ5PIN);
+    // Reading temperature or humidity takes about 250 milliseconds!
+    // Sensor readings may also be up to 2 seconds 'old' (its a very slow sensor)
+    r->hum = dht.readHumidity();
+    // Read temperature as Celsius (the default)
+    r->temp = dht.readTemperature();
+    // Check if any reads failed and exit early (to try again).
+    if (isnan(r->hum) || isnan(r->temp)) {
+      Serial.println(F("Failed to read from DHT sensor!"));
+      return;
+    }
+  #endif
+}
+
+void displaySensors(struct readings r) {
+  if (r.gas == true) {
+    Serial.println("[INFO] Gas DETECTED!!!");
+  }
+  Serial.print("[INFO] Gas status: ");
+  Serial.println(r.gas);
+  Serial.print("[INFO] Humidity: ");
+  Serial.print(r.hum);
+  Serial.println("%");
+  Serial.print("[INFO] Temperature: ");
+  Serial.print(r.temp);
+  Serial.print("°C ");
+}
+
+void sendDataToFirebase(struct readings r) {
+  String gasStatusID = Firebase.pushInt("mq5/gas", r.gas);
+  if (Firebase.failed()) {
+    Serial.print("[ERROR] pushing mq5/gasStatus failed:");
+    Serial.println(Firebase.error());
+    return;
+  }
+
+  String humValueID = Firebase.pushFloat("dht11/humidity", r.hum);
+  if (Firebase.failed()) {
+    Serial.print("[ERROR] pushing /dht11/humidity failed:");
+    Serial.println(Firebase.error());
+    return;
+  }
+
+  String tempValueID = Firebase.pushFloat("dht11/temperature", r.temp);
+  if (Firebase.failed()) {
+    Serial.print("[ERROR] pushing /dht11/temperature failed:");
+    Serial.println(Firebase.error());
+    return;
+  }
 }
