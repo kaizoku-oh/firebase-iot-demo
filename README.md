@@ -31,11 +31,11 @@ cd firebase-iot-demo/include
 Inside 'include' directory create a new file named 'Creds.h' and replace with the values of your WiFi SSID, Password and Firebase host of your Firebase project and Firebase Auth which you can find them in this link by replacing [###########] with your Firebase project name. https://console.firebase.google.com/project/[###########]/settings/serviceaccounts/databasesecrets
 
 ```C
-#define MYSSID                  "##########"
-#define MYPASSWORD              "##########"
+#define SSID "XXXXXXXXXXX"
+#define PASSWORD "XXXXXXXXXXXXXXX"
 
-#define FIREBASE_HOST           "#############.firebaseio.com"
-#define FIREBASE_AUTH           "############################"
+#define FIREBASE_HOST "XXXXXXXXXXXXX.firebaseio.com"
+#define FIREBASE_AUTH "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
 ```
 
 #### Simulate Sensors
